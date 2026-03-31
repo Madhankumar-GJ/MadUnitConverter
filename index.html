@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
+    <title>ProFix | Industrial Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root { --safe-bottom: env(safe-area-inset-bottom); }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0f172a; 
+            touch-action: manipulation; 
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Dynamic Font Sizing for Inputs */
+        .input-fit { font-size: clamp(1.5rem, 8vw, 2.5rem) !important; }
+        .label-fit { font-size: clamp(0.6rem, 2.5vw, 0.75rem); }
+        
+        /* Smooth Bottom Sheet */
+        #unitPicker { 
+            transform: translateY(100%); 
+            transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1); 
+            max-height: 80vh;
+        }
+        #unitPicker.open { transform: translateY(0); }
+        .overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .overlay.open { opacity: 1; pointer-events: auto; }
+        
+        /* Active Category Style */
+        .btn-active { background-color: #eab308; color: #0f172a; font-weight: 900; box-shadow: 0 4px 14px 0 rgba(234, 179, 8, 0.3); }
+
+        /* Custom Scrollbar for the Grid */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="text-slate-100">
+
+    <header class="pt-[calc(1.5rem+env(safe-area-inset-top))] px-6 pb-2 text-center">
+        <h1 class="text-2xl sm:text-3xl font-black text-yellow-500 uppercase tracking-tighter italic">ProFix PRO</h1>
+        <div class="h-1 w-10 bg-yellow-500 mx-auto mt-1 rounded-full"></div>
+    </header>
+
+    <main class="flex-1 w-full max-w-lg mx-auto p-4 flex flex-col justify-center gap-4">
+        
+        <div class="flex gap-2 overflow-x-auto no-scrollbar p-1.5 bg-slate-800/40 rounded-2xl border border-slate-700/30">
+            <button onclick="setCategory('length', this)" class="cat-btn btn-active flex-1 min-w-[85px] py-3.5 rounded-xl text-[10px] sm:text-xs uppercase tracking-widest transition-all">Length</button>
+            <button onclick="setCategory('volume', this)" class="cat-btn flex-1 min-w-[85px] py-3.5 rounded-xl text-slate-400 text-[10px] sm:text-xs uppercase tracking-widest transition-all">Liquid</button>
+            <button onclick="setCategory('weight', this)" class="cat-btn flex-1 min-w-[85px] py-3.5 rounded-xl text-slate-400 text-[10px] sm:text-xs uppercase tracking-widest transition-all">Weight</button>
+        </div>
+
+        <div class="bg-slate-800 rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 shadow-2xl border-b-[6px] border-yellow-600">
+            <div class="space-y-4">
+                
+                <div class="bg-slate-900 rounded-[1.5rem] p-4 sm:p-5 border-2 border-transparent focus-within:border-yellow-500 transition-all">
+                    <label class="label-fit font-black text-slate-500 uppercase tracking-widest mb-1 block">Input Value</label>
+                    <div class="flex items-center justify-between gap-2">
+                        <input type="number" id="inputVal" placeholder="0" oninput="calculate()"
+                            class="mono input-fit bg-transparent font-bold outline-none text-white placeholder-slate-800 w-full min-w-0">
+                        <button onclick="openPicker('from')" id="fromDisplay" class="shrink-0 bg-slate-700 text-white font-bold py-2.5 px-4 rounded-xl border-none outline-none ring-1 ring-slate-600 text-sm sm:text-base active:scale-95 transition-transform">mm</button>
+                    </div>
+                </div>
+
+                <div class="flex justify-center -my-7 relative z-10">
+                    <button onclick="swapUnits()" class="bg-yellow-500 p-3.5 sm:p-4 rounded-full shadow-xl active:rotate-180 transition-all duration-500 hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 sm:h-8 sm:w-8 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="bg-slate-950 rounded-[1.5rem] p-4 sm:p-5 border-2 border-slate-800">
+                    <label class="label-fit font-black text-yellow-500 uppercase tracking-widest mb-1 block text-right">Output Result</label>
+                    <div class="flex items-center justify-between gap-2">
+                        <input type="number" id="outputVal" readonly placeholder="---"
+                            class="mono input-fit bg-transparent font-bold outline-none text-yellow-400 w-full min-w-0">
+                        <button onclick="openPicker('to')" id="toDisplay" class="shrink-0 bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl border-none outline-none ring-1 ring-slate-700 text-sm sm:text-base active:scale-95 transition-transform">cm</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 sm:gap-4 mt-8">
+                <button onclick="clearAll()" class="py-4 sm:py-5 bg-slate-700 text-white rounded-2xl font-bold uppercase text-[10px] sm:text-xs tracking-widest active:bg-slate-600">Clear</button>
+                <button onclick="copyToClipboard()" id="copyBtn" class="py-4 sm:py-5 bg-white text-slate-900 rounded-2xl font-black uppercase text-[10px] sm:text-xs tracking-widest active:bg-yellow-400">Copy</button>
+            </div>
+        </div>
+
+        <p class="text-center text-slate-600 text-[10px] uppercase font-bold tracking-widest mt-2">Field Optimized Layout</p>
+    </main>
+
+    <div id="pickerOverlay" class="overlay fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[100]" onclick="closePicker()"></div>
+    <div id="unitPicker" class="fixed bottom-0 left-0 right-0 bg-slate-900 rounded-t-[2rem] z-[101] border-t-2 border-slate-700 p-6 flex flex-col">
+        <div class="w-10 h-1.5 bg-slate-700 mx-auto rounded-full mb-6 shrink-0"></div>
+        <h3 class="text-center font-black uppercase tracking-[0.2em] text-slate-500 mb-6 text-[10px]">Select Measurement Unit</h3>
+        
+        <div id="unitList" class="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto no-scrollbar pb-[var(--safe-bottom)]">
+            </div>
+    </div>
+
+    <div class="h-[var(--safe-bottom)] shrink-0"></div>
+
+    <script>
+        const unitRegistry = {
+            length: { units: ['mm', 'cm', 'Meter', 'Inch', 'Foot', 'Yard'], ratios: { 'mm': 1, 'cm': 10, 'Meter': 1000, 'Inch': 25.4, 'Foot': 304.8, 'Yard': 914.4 } },
+            volume: { units: ['ml', 'Liter', 'Fluid Oz', 'Gallon', 'Pint'], ratios: { 'ml': 1, 'Liter': 1000, 'Fluid Oz': 29.57, 'Gallon': 3785.41, 'Pint': 473.17 } },
+            weight: { units: ['Gram', 'Kg', 'Oz', 'Pound', 'Ton'], ratios: { 'Gram': 1, 'Kg': 1000, 'Oz': 28.35, 'Pound': 453.59, 'Ton': 907185 } }
+        };
+
+        let activeCategory = 'length';
+        let currentTarget = 'from';
+        let units = { from: 'mm', to: 'cm' };
+
+        function setCategory(cat, element) {
+            activeCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('btn-active', 'text-slate-900');
+                btn.classList.add('text-slate-400');
+            });
+            element.classList.add('btn-active');
+            element.classList.remove('text-slate-400');
+
+            units.from = unitRegistry[cat].units[0];
+            units.to = unitRegistry[cat].units[1];
+            updateDisplays();
+            calculate();
+        }
+
+        function openPicker(target) {
+            currentTarget = target;
+            const list = document.getElementById('unitList');
+            list.innerHTML = '';
+            
+            unitRegistry[activeCategory].units.forEach(u => {
+                const btn = document.createElement('button');
+                const isActive = units[target] === u;
+                btn.className = `py-4 px-2 rounded-xl font-bold uppercase text-[11px] transition-all border-2 ${isActive ? 'bg-yellow-500 text-slate-900 border-yellow-400 shadow-lg shadow-yellow-500/20' : 'bg-slate-800 text-slate-400 border-transparent active:bg-slate-700'}`;
+                btn.innerText = u;
+                btn.onclick = () => selectUnit(u);
+                list.appendChild(btn);
+            });
+
+            document.getElementById('pickerOverlay').classList.add('open');
+            document.getElementById('unitPicker').classList.add('open');
+            document.body.style.overflow = 'hidden'; // Prevent background scroll
+        }
+
+        function closePicker() {
+            document.getElementById('pickerOverlay').classList.remove('open');
+            document.getElementById('unitPicker').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function selectUnit(u) {
+            units[currentTarget] = u;
+            updateDisplays();
+            calculate();
+            closePicker();
+        }
+
+        function updateDisplays() {
+            document.getElementById('fromDisplay').innerText = units.from;
+            document.getElementById('toDisplay').innerText = units.to;
+        }
+
+        function calculate() {
+            const inputVal = document.getElementById('inputVal').value;
+            const out = document.getElementById('outputVal');
+            
+            if (!inputVal || isNaN(inputVal)) { 
+                out.value = ''; 
+                return; 
+            }
+
+            const val = parseFloat(inputVal);
+            const base = val * unitRegistry[activeCategory].ratios[units.from];
+            const result = base / unitRegistry[activeCategory].ratios[units.to];
+            
+            // Auto-formatting precision
+            if (result === 0) out.value = 0;
+            else if (Math.abs(result) < 0.0001) out.value = result.toExponential(2);
+            else out.value = result % 1 === 0 ? result : parseFloat(result.toFixed(4));
+        }
+
+        function swapUnits() {
+            const temp = units.from;
+            units.from = units.to;
+            units.to = temp;
+            updateDisplays();
+            calculate();
+        }
+
+        function clearAll() {
+            document.getElementById('inputVal').value = '';
+            document.getElementById('outputVal').value = '';
+        }
+
+        function copyToClipboard() {
+            const val = document.getElementById('outputVal').value;
+            const btn = document.getElementById('copyBtn');
+            if(val) {
+                navigator.clipboard.writeText(val);
+                if (window.navigator.vibrate) window.navigator.vibrate(25);
+                
+                const oldText = btn.innerText;
+                btn.innerText = "COPIED";
+                btn.classList.replace('bg-white', 'bg-green-500');
+                setTimeout(() => {
+                    btn.innerText = oldText;
+                    btn.classList.replace('bg-green-500', 'bg-white');
+                }, 1000);
+            }
+        }
+
+        window.onload = () => updateDisplays();
+    </script>
+</body>
+</html>
